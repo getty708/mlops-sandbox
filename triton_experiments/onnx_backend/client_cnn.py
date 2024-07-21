@@ -7,9 +7,12 @@ import pandas as pd
 import torch
 import tritonclient.grpc as grpcclient
 from loguru import logger
+from services.toy_models.simple_cnn.const import (
+    SIMPLE_CNN_INPUT_TENSOR,
+    SIMPLE_CNN_OUTPUT_TENSOR,
+)
 from tqdm import tqdm
 
-from models.simple_cnn.const import SIMPLE_CNN_INPUT_TENSOR, SIMPLE_CNN_OUTPUT_TENSOR
 from triton_experiments.onnx_backend.utils.client import (
     cleanup_shared_memory,
     convert_results_on_cudashm_to_tensor_dict,

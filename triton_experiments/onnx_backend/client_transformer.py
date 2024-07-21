@@ -7,14 +7,14 @@ import pandas as pd
 import torch
 import tritonclient.grpc as grpcclient
 from loguru import logger
-from tqdm import tqdm
-
-from models.simple_transformer.const import (
+from services.toy_models.simple_transformer.const import (
     SIMPLE_TRANSFORMER_EMBEDDING_DIM,
     SIMPLE_TRANSFORMER_INPUT_TENSOR,
     SIMPLE_TRANSFORMER_OUTPUT_TENSOR,
     SIMPLE_TRANSFORMER_SRC_SRQUENCE_LEN,
 )
+from tqdm import tqdm
+
 from triton_experiments.onnx_backend.utils.client import (
     cleanup_shared_memory,
     convert_results_on_cudashm_to_tensor_dict,

@@ -6,4 +6,4 @@ init:
 
 .PHONY: test
 test:
-	poetry run pytest --cov=. --junitxml=pytest.xml --cov-report=term-missing models
+	poetry run pytest --cov=. --junitxml=pytest.xml --cov-report=term-missing services/

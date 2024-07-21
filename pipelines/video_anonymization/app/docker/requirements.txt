@@ -1,0 +1,12 @@
+click
+loguru
+opencv-python==4.10.0.84  # Installed from source, don't upgrade
+opentelemetry-distro
+opentelemetry-exporter-otlp
+opentelemetry-sdk
+torch --index-url https://download.pytorch.org/whl/cu124
+torchvision --index-url https://download.pytorch.org/whl/cu124
+transformers
+ultralytics
+yacs>=0.1.5
+timm
