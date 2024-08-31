@@ -1,0 +1,79 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://${PROMETHEUS_HOST}:${PROMETHEUS_PORT}
+    basicAuth: false
+    isDefault: true
+    readOnly: false
+    editable: true
+    allowUiUpdates: true
+    uid: "prometheus"
+    jsonData:
+      timeInterval: 15s
+      exemplarTraceIdDestinations:
+        - name: TraceID
+          datasourceUid: tempo
+
+  - name: "Loki"
+    type: "loki"
+    access: "proxy"
+    orgId: 1
+    version: 1
+    url: "http://${LOKI_HOST}:${LOKI_PORT}"
+    basicAuth: false
+    isDefault: false
+    readOnly: false
+    editable: false
+    allowUiUpdates: true
+    uid: "loki"
+    jsonData:
+      derivedFields:
+        - datasourceUid: "tempo"
+          matcherRegex: '"(?:trace_id|traceID|^traceparent)":"(\w+)"'
+          name: "TraceID"
+          url: "$${__value.raw}"
+        - datasourceUid: tempo
+          matcherRegex: '"traceparent":"[\d]{2}-([\da-f]{32})-[\da-f]{16}-[\da]{2}"'
+          name: TraceIDInTraceparent
+          url: $${__value.raw}
+
+  - name: "Tempo"
+    type: "tempo"
+    access: "proxy"
+    orgId: 1
+    version: 1
+    apiVersion: 1
+    url: "http://${TEMPO_HOST}:${TEMPO_PORT}"
+    basicAuth: false
+    isDefault: false
+    readOnly: false
+    editable: false
+    allowUiUpdates: true
+    uid: "tempo"
+    jsonData:
+      lokiSearch:
+        datasourceUid: "loki"
+      tracesToLogs:
+        datasourceUid: "loki"
+        tags: ["container"]
+        mappedTags: [{ key: "service.name", value: "workload" }]
+        mapTagNamesEnabled: true
+        spanStartTimeShift: "-1h"
+        spanEndTimeShift: "1h"
+        filterByTraceID: true
+        filterBySpanID: false
+      tracesToMetrics:
+        datasourceUid: "Prometheus"
+        tags: [{ key: "service.name", value: "workload" }]
+        spanStartTimeShift: "-10m"
+        spanEndTimeShift: "10m"
+        queries:
+          - name: "p99 latency"
+            query: histogram_quantile(.99, sum(rate(http_request_duration_seconds_bucket{$$__tags}[1m])) by (le))
+      nodeGraph:
+        enabled: "true"
+      serviceMap:
+        datasourceUid: "prometheus"

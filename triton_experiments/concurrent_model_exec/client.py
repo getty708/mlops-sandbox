@@ -7,9 +7,9 @@ import pandas as pd
 import torch
 import tritonclient.grpc as grpcclient
 from loguru import logger
+from services.toy_models.simple_cnn.const import SIMPLE_CNN_INPUT_TENSOR
 from tqdm import tqdm
 
-from models.simple_cnn.const import SIMPLE_CNN_INPUT_TENSOR
 from triton_experiments.common.const import SAMPLE_IMAGE_PATH
 from triton_experiments.common.triton_client.utils import (
     cleanup_shared_memory,
