@@ -24,6 +24,7 @@ python = "^3.10"
 torch = "^2.3.1"
 tqdm = "^4.66.4"
 tritonclient = {extras = ["all"], version = "^2.47.0"}
+torchvision = "^0.19.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
@@ -51,7 +52,7 @@ testpaths = [
 ]
 
 [tool.coverage.run]
-omit = ["**/tests/*"]
+omit = ["**/tests/*", "**/external/*"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -86,6 +87,7 @@ disable = [
   "fixme",
   "import-error",
   "line-too-long",
+  "logging-fstring-interpolation",
   "missing-class-docstring",
   "missing-docstring",
   "missing-function-docstring",
