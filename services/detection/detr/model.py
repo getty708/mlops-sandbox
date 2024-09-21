@@ -5,6 +5,8 @@ from transformers import DetrForObjectDetection, DetrImageProcessor
 from transformers.image_processing_utils import BatchFeature
 from transformers.models.detr.modeling_detr import DetrObjectDetectionOutput
 
+from services.detection.filtering import exclude_too_small_bbox
+
 tracer = trace.get_tracer_provider().get_tracer(__name__)
 
 _DEVICE: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -44,6 +46,7 @@ class DetrWrapper:
             bboxes_xyxy = self.postproc(
                 logits_batch=model_outputs[_DETR_LOGITS_TENSOR_NAME],
                 pred_boxes_batch=model_outputs[_DETR_PRED_BOXES_TENSOR_NAME],
+                frame_size=(img_tensor.size(2), img_tensor.size(3)),
             )
         logger.info(f"{len(bboxes_xyxy)} people detected")
         return bboxes_xyxy
@@ -78,7 +81,11 @@ class DetrWrapper:
         # Get the bounding boxes for the person class
         labels = outputs[0][_DETR_LABELS_KEY_NAME].to(dtype=torch.int64)
         bbox_idx_for_person = labels == 1
-        boxes_xyxy_for_person = outputs[0][_DETR_BOXES_KEY_NAME][bbox_idx_for_person].to(
-            dtype=torch.int64
+        boxes_xyxy_for_person = (
+            outputs[0][_DETR_BOXES_KEY_NAME][bbox_idx_for_person]
+            .to(dtype=torch.int64)
+            .detach()
+            .cpu()
         )
-        return boxes_xyxy_for_person.detach().cpu()
+        boxes_xyxy_for_person = exclude_too_small_bbox(boxes_xyxy_for_person)
+        return boxes_xyxy_for_person
