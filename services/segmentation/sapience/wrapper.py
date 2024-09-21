@@ -1,6 +1,7 @@
 from pathlib import Path
 from venv import logger
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torchvision.transforms as T
@@ -27,6 +28,8 @@ class SapienceSegWrapper:
                 T.Normalize(mean=[123.5, 116.5, 103.5], std=[58.5, 57.0, 57.5]),
             ],
         )
+        # Batch size for inference
+        self.max_sub_batch_size = 8
 
         # Target Class
         if target_class_names is None:
@@ -64,8 +67,7 @@ class SapienceSegWrapper:
         with tracer.start_as_current_span("preprocess"):
             cropped_imgs, _ = self.preproc(img_tensor, bboxes_xyxy)
         with tracer.start_as_current_span("inference"):
-            with torch.no_grad():
-                model_outputs = self.model(cropped_imgs)
+            model_outputs = self.inference(cropped_imgs)
         with tracer.start_as_current_span("postprocess"):
             mask_frame = self.postproc(img_tensor, model_outputs, bboxes_xyxy)
         return mask_frame
@@ -75,7 +77,7 @@ class SapienceSegWrapper:
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Crop bbox and apply preprocessing
         Args:
-            img_tensor (torch.Tensor): (C, H, W)
+            img_tensor (torch.Tensor): (C, H, W), valuera in [0, 255].
             bboxes_xyxy (torch.Tensor): (NUM_OBJ, 4)
         """
         img_tensor = img_tensor.to(self.device, dtype=self.dtype)
@@ -98,6 +100,19 @@ class SapienceSegWrapper:
 
         scales_xy = torch.tensor(scales_xy).contiguous()
         return cropped_imgs, scales_xy
+
+    def inference(self, cropped_imgs: torch.Tensor) -> torch.Tensor:
+        model_outputs = []
+        num_sub_batches = int(np.ceil(len(cropped_imgs) / self.max_sub_batch_size))
+        for i in range(num_sub_batches):
+            with torch.no_grad():
+                sub_batch = cropped_imgs[
+                    self.max_sub_batch_size * i : self.max_sub_batch_size * (i + 1)
+                ]
+                _model_outputs = self.model(sub_batch)
+            model_outputs.append(_model_outputs)
+        model_outputs = torch.cat(model_outputs, dim=0).detach().cpu().contiguous()
+        return model_outputs
 
     def postproc(
         self, img_tensor: torch.Tensor, result: torch.Tensor, bbox_xyxy: torch.Tensor
@@ -141,6 +156,7 @@ class SapienceSegWrapper:
             )
 
             # Set the mask to the frame
+            print("C1-1", mask_frame.size(), mask_bbox.size(), xyxy)
             mask_frame[:, xyxy[1] : xyxy[3], xyxy[0] : xyxy[2]] += mask_bbox
 
         # Select results for target classes
