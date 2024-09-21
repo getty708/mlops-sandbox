@@ -1,3 +1,7 @@
+"""Make anoymized video with body part segmentation.
+"""
+
+from email.policy import default
 from pathlib import Path
 
 import click
@@ -17,8 +21,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from pipelines.video_anonymization.app.base import BasePipeline
 from services.detection.detr.model import DetrWrapper
 from services.detection.visualize import dwraw_bounding_boxes
-from services.pose_estimation.transpose import TransPoseWrapper
-from services.pose_estimation.visualize import draw_keypoints
+from services.segmentation.sapience.wrapper import SapienceSegWrapper
 
 MAX_FRAME_ID_IN_DEBUG_MODE = 10
 _DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -26,11 +29,20 @@ _DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DEFAULT_OUTPUT_DIR = Path("./outputs/")
 FULLHD_IMAGE_SIZE_HW = (1080, 1920)
 
-_MSCOCO_NOSE_JOINT_INDEX = 0
-_MSCOCO_LEFT_SHOULDER_JOINT_INDEX = 5
-_MSCOCO_RIGHT_SHOULDER_JOINT_INDEX = 6
+SEGMENTATION_TARGET_BODY_PASRTS = (
+    "Face_Neck",
+    "Hair",
+    "Lower_Lip",
+    "Upper_Lip",
+    "Lower_Teeth",
+    "Upper_Teeth",
+    "Tongue",
+)
+
+DEFAULT_OUTPUT_DIR = Path("./outputs/seg_base")
 
 OTEL_CONNECTOR_ENDPOINT = "otel-collector:4317"
+
 
 # ====================
 # OpenTelemetry Setup
@@ -80,29 +92,17 @@ pcounter = PeopeleCounter()
 # ===============
 
 
-def draw_face_anonymization_mask(img: np.ndarray, keypoints_all: np.ndarray) -> np.ndarray:
+def draw_face_anonymization_mask_with_mask(img: np.ndarray, mask: np.ndarray) -> np.ndarray:
     """Draw a circle mask on the face of the person in the image.
     Center is a nose keypoint, radius is the distance between the nose and the right/left shoulder.
-    """
-    for keypoints in keypoints_all:
-        # Get face keypoints
-        nose_keypoint = keypoints[_MSCOCO_NOSE_JOINT_INDEX]
-        shoulder_keypoints = keypoints[
-            [
-                _MSCOCO_RIGHT_SHOULDER_JOINT_INDEX,
-                _MSCOCO_LEFT_SHOULDER_JOINT_INDEX,
-            ]
-        ]
-        radius = np.sqrt(np.sum((shoulder_keypoints - nose_keypoint) ** 2, axis=1)).max()
 
-        # Draw mask
-        img = cv2.circle(
-            img,
-            center=(int(nose_keypoint[0]), int(nose_keypoint[1])),
-            radius=int(radius),
-            color=(0, 0, 0),
-            thickness=-1,
-        )
+    Args:
+        img (np.ndarray): Original image. (H, W, C)
+        mask (np.ndarray): Segmentation mask (H, W, CLASS=7)
+
+    """
+    mask = np.clip(mask.sum(axis=2), 0, 1)
+    img[mask == 1, :] = 0
     return img
 
 
@@ -113,45 +113,58 @@ def draw_face_anonymization_mask(img: np.ndarray, keypoints_all: np.ndarray) -> 
 
 class Pipeline(BasePipeline):
     detector: DetrWrapper
-    pose_estimator: TransPoseWrapper
+    segmentation: SapienceSegWrapper
 
-    def __init__(self, *args, draw_model_outputs: bool = False, **kwargs):
+    def __init__(self, *args, draw_model_outputs: bool = True, **kwargs):
         super().__init__(*args, **kwargs)
         self.draw_model_outputs = draw_model_outputs
 
     def init_pipeline_modules(self):
         self.detector = DetrWrapper(device=_DEVICE)
-        self.pose_estimator = TransPoseWrapper(device=_DEVICE)
+        self.segmentation = SapienceSegWrapper(SEGMENTATION_TARGET_BODY_PASRTS)
+        self.segmentation.load_model()
 
     def process_single_frame(self, img: np.ndarray) -> np.ndarray:
-        img_tensor = torch.from_numpy(img).permute(2, 0, 1).flip(0).unsqueeze(0).to(_DEVICE)
-        img_tensor = img_tensor.float() / 255.0
+        img_tensor_unscaled = (
+            torch.from_numpy(img).permute(2, 0, 1).flip(0).unsqueeze(0).to(_DEVICE)
+        )
+        img_tensor_unscaled = img_tensor_unscaled.float()
+        img_tensor = img_tensor_unscaled / 255.0
 
         # == Model Inference ==
         with tracer.start_as_current_span("person_detection"):
             bboxes_xyxy = self.detector(img_tensor)
             pcounter.add(len(bboxes_xyxy))
-        with tracer.start_as_current_span("pose_estimation"):
-            keypoints = self.pose_estimator(img_tensor, bboxes_xyxy)
+        with tracer.start_as_current_span("segmentation"):
+            print(
+                "C1-1",
+                img_tensor_unscaled.size(),
+                img_tensor_unscaled.min(),
+                img_tensor_unscaled.max(),
+                img_tensor_unscaled[0].size(),
+                bboxes_xyxy.size(),
+            )
+            mask = self.segmentation(img_tensor_unscaled[0], bboxes_xyxy)
+            print("C2-1", mask.sum())
 
         # == Visualize Results ==
         with tracer.start_as_current_span("visualization"):
-            img = draw_face_anonymization_mask(img, keypoints.numpy())
+            mask_ch_last = mask.detach().cpu().numpy().transpose(1, 2, 0)
+            img = draw_face_anonymization_mask_with_mask(img, mask_ch_last)
             if self.draw_model_outputs:
                 img = dwraw_bounding_boxes(img, bboxes_xyxy.numpy())
-                img = draw_keypoints(img, keypoints.numpy())
+                # img = draw_keypoints(img, keypoints.numpy())
         return img
 
 
 @click.command()
 @click.option("-v", "--video-path", type=click.Path(exists=True, path_type=Path), required=True)
 @click.option(
-    "-d",
-    "--draw-model-outputs",
-    is_flag=True,
-    default=False,
+    "-o",
+    "--output-dir",
+    type=click.Path(path_type=Path),
+    default=DEFAULT_OUTPUT_DIR,
     show_default=True,
-    help="Draw keypoints on the image",
 )
 @click.option(
     "--debug",
@@ -160,12 +173,16 @@ class Pipeline(BasePipeline):
     show_default=True,
     help=f"Process only the first {MAX_FRAME_ID_IN_DEBUG_MODE} frames",
 )
-def main(video_path: Path, debug: bool = False, draw_model_outputs: bool = False):
+def main(
+    video_path: Path,
+    output_dir: Path,
+    debug: bool = False,
+):
     pipeline = Pipeline(
         video_path=video_path,
+        output_dir=output_dir,
         proc_tracer=tracer,
         debug=debug,
-        draw_model_outputs=draw_model_outputs,
     )
     pipeline.init_pipeline_modules()
     pipeline.run()

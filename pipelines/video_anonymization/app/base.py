@@ -48,7 +48,7 @@ class BasePipeline:
     def init_pipeline_modules(self):
         raise NotImplementedError
 
-    def run(self, draw_model_outputs: bool = False):
+    def run(self):
         # Init video writer
         fourcc = cv2.VideoWriter_fourcc(*"avc1")
         video_writer = cv2.VideoWriter(
