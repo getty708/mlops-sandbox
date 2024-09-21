@@ -20,10 +20,14 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torchvision
-from adhoc_image_dataset import AdhocImageDataset
-from classes_and_palettes import GOLIATH_CLASSES, GOLIATH_PALETTE
 from tqdm import tqdm
-from worker_pool import WorkerPool
+
+from services.segmentation.sapience.adhoc_image_dataset import AdhocImageDataset
+from services.segmentation.sapience.classes_and_palettes import (
+    GOLIATH_CLASSES,
+    GOLIATH_PALETTE,
+)
+from services.segmentation.sapience.worker_pool import WorkerPool
 
 torchvision.disable_beta_transforms_warning()
 

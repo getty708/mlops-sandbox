@@ -306,6 +306,9 @@ $RECYCLE.BIN/
 pytest-coverage.txt
 pytest.xml
 
+# Data
+data/
+
 # Models
 *.pb
 *.tar.gz
