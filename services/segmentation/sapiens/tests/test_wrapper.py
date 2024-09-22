@@ -12,6 +12,7 @@ from services.segmentation.sapiens.external.classes_and_palettes import (
 from services.segmentation.sapiens.wrapper import SapiensSegWrapper
 
 _REPO_ROOT_DIR = Path(__file__).parents[4].resolve()
+_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def get_sample_img_tensor() -> torch.Tensor:
@@ -32,7 +33,7 @@ def test_sapiens_seg_wrapper_preprocess():
         ]
     )
 
-    wrapper = SapiensSegWrapper()
+    wrapper = SapiensSegWrapper(device=_DEVICE)
     cropped_imgs = wrapper.preproc(img_tensor, bbox_xyxy)
 
     # Check output tensor shapes
@@ -42,7 +43,7 @@ def test_sapiens_seg_wrapper_preprocess():
 def test_sapiens_seg_wrapper_preprocess_without_bbox():
     img_tensor = torch.randint(0, 255, (3, 1080, 1920)).float()
 
-    wrapper = SapiensSegWrapper()
+    wrapper = SapiensSegWrapper(device=_DEVICE)
     cropped_imgs = wrapper.preproc(img_tensor)
 
     # Check output tensor shapes
@@ -73,6 +74,7 @@ def test_sapiens_seg_wrapper_postproc(use_bbox: bool):
     np.testing.assert_array_equal(mask.size(), (28, 1080, 1920))
 
 
+@pytest.mark.test_requires_data
 def test_sapiens_seg_wrapper_e2e():
     img_tensor = get_sample_img_tensor()
     bbox_xywh = torch.tensor(

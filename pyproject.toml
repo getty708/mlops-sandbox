@@ -40,10 +40,11 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-addopts = "-rsxX -l --tb=short --strict-markers -v --ff"
+addopts = "-rsxX --tb=short --strict-markers -v --ff"
 markers = [
     "unit: mark a test as a unit test",
     "inference: mark a test as an inference test",
+    "test_requires_data: mark a test as a test that requires some data to be downloaded",
 ]
 testpaths = [
   "services/",
