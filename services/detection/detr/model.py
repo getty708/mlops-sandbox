@@ -33,6 +33,13 @@ class DetrWrapper:
         )
 
     def __call__(self, img_tensor: torch.Tensor) -> torch.Tensor:
+        if img_tensor.dim() == 3:
+            frame_size = img_tensor.size()[1:]
+        elif img_tensor.dim() == 4:
+            frame_size = img_tensor.size()[2:]
+        else:
+            raise ValueError(f"Invalid input tensor shape: {img_tensor.size()}")
+
         with tracer.start_as_current_span("preprocess"):
             preproc_outputs = self.preproc(img_tensor)
         with tracer.start_as_current_span("inference"):
@@ -44,6 +51,7 @@ class DetrWrapper:
             bboxes_xyxy = self.postproc(
                 logits_batch=model_outputs[_DETR_LOGITS_TENSOR_NAME],
                 pred_boxes_batch=model_outputs[_DETR_PRED_BOXES_TENSOR_NAME],
+                frame_size=frame_size,
             )
         logger.info(f"{len(bboxes_xyxy)} people detected")
         return bboxes_xyxy
@@ -64,9 +72,12 @@ class DetrWrapper:
         self,
         logits_batch: torch.Tensor,
         pred_boxes_batch: torch.Tensor,
-        frame_size: tuple[int, int] = (1080, 1920),
+        frame_size: tuple[int, int] | None = None,
     ) -> tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]:
         """Rescale back bboxes to the original image size."""
+        if frame_size is None:
+            frame_size = (1080, 1920)
+
         batch_size: int = logits_batch.size(0)
         assert batch_size == 1
         detr_outputs = DetrObjectDetectionOutput(logits=logits_batch, pred_boxes=pred_boxes_batch)

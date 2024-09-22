@@ -1,0 +1,18 @@
+services:
+  workspace:
+    build:
+      context: ./pipelines/video_anonymization/app/docker
+      dockerfile: Dockerfile
+    image: getty708/mlops-sandbox:24.08-py3-base
+    container_name: mlops-sandbox
+    working_dir: /workspace/mlops-sandbox/
+    command: /bin/bash
+    tty: true
+    volumes:
+      - ./:/workspace/mlops-sandbox/
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
