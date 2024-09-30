@@ -331,3 +331,7 @@ outputs/
 *.zip
 *.deb
 *.sarif
+
+# WandB
+wandb/
+artifacts/

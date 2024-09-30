@@ -89,6 +89,7 @@ max-line-length = 100
 
 [tool.pylint.messages_control]
 disable = [
+  "c-extension-no-member",
   "consider-using-f-string",
   "duplicate-code",
   "fixme",
@@ -103,8 +104,10 @@ disable = [
   "no-member",
   "no-value-for-parameter",
   "protected-access",
+  "redefined-outer-name",
   "too-few-public-methods",
   "too-many-arguments",
   "unspecified-encoding",
   "unused-argument",
+  "wrong-import-order",
 ]

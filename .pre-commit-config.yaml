@@ -26,7 +26,7 @@ repos:
         id: isort
         args: ["--profile", "black"]
   - repo: https://github.com/pycqa/pylint
-    rev: v3.2.4
+    rev: v3.3.1
     hooks:
       - id: pylint
         entry: poetry run pylint
