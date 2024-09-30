@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import onnxruntime as ort
 import pytest
+
 from services.toy_models.simple_transformer.const import (
     SIMPLE_TRANSFORMER_EMBEDDING_DIM,
     SIMPLE_TRANSFORMER_SRC_SRQUENCE_LEN,
@@ -16,7 +17,7 @@ _SIMPLE_TRANSFORMER_ONNX_FILE = _ONNX_FILE_DIR / "simple_transformer_optimized.o
 
 
 @pytest.mark.inference
-@pytest.mark.skipif(_SIMPLE_TRANSFORMER_ONNX_FILE.exists() is False, reason="ONNX file not found.")
+@pytest.mark.test_requires_data
 @pytest.mark.parametrize(
     "batch_size",
     (1, 8, 32),

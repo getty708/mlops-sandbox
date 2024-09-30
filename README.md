@@ -7,3 +7,13 @@
 ## PyTriton
 
 - [Quick Start](./pytriton/quick-start/)
+
+## Setup
+
+```bash
+# for CPU devce
+make init
+
+# for GPU device
+make init-gpu
+```
