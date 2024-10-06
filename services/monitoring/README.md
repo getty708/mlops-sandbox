@@ -25,3 +25,7 @@ python services/monitoring/tools/run_otel_in_wandb.py -n 100 -w online
 Set `--wandb-mode` to `online` to record the results in the wandb (default is `offline`). Then, you can see the processing time of each model in the wandb in real-time.
 
 ![proc time in wandb](./assets/otel-in-wandb-spanmetrics.png)
+
+#### Reference
+
+- [OpenTelemetry を使って Span を W&B に記録する - Zenn](https://zenn.dev/getty708/articles/20241006-wandb-spanmetrics-exporter)

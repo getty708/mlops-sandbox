@@ -26,7 +26,10 @@ class WandBSpanmetricsExporter(SpanExporter):
         for span in spans:
             # Get duration from the span
             duration = (span.end_time - span.start_time) / 1e6  # Duration in milliseconds
-            commit = span.attributes.get(IS_ROOT_SPAN_KEY_NAME, False)
+            if self.commit_evry_call is True:
+                commit = True
+            else:
+                commit = span.attributes.get(IS_ROOT_SPAN_KEY_NAME, False)
             metric = {f"otel/span/{span.name}/duration/ms": duration}
             # Get other attributes from the span
             for key, value in span.attributes.items():

@@ -36,15 +36,13 @@ tracer = trace.get_tracer_provider().get_tracer(__name__)
 # ==============
 
 
-class DummyModel:
+class DummyModel(torch.nn.Module):
     def __init__(self, name: str, mean: float, std: float, seed: int = 12345) -> None:
+        super().__init__()
         self.name = name
         self.mean = mean
         self.std = std
         self.rng = np.random.default_rng(seed)
-
-    def __call__(self, *arg, **kwargs):
-        return self.forward(*arg, **kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         duration = self.rng.normal(loc=self.mean, scale=self.std)
@@ -82,18 +80,21 @@ def main(num_frames: int = 10, wandb_mode: str = "offline"):
     # Run the pipeline
     for i in range(num_frames):
         logger.info(f"Processing frame {i}")
-        with tracer.start_as_current_span("process_single_frame") as span:
-            span.set_attribute(IS_ROOT_SPAN_KEY_NAME, True)
-            span.set_attribute("frame_idx", i)
-
+        with tracer.start_as_current_span("process_single_frame") as root_span:
             x = torch.randn(1, 3, 100, 100)
-            with tracer.start_as_current_span("model1") as span_1:
+            with tracer.start_as_current_span("model1"):
                 x = model1(x)
-                span_1.set_attribute("num_detecton", num_detection_generator(i))
+
             with tracer.start_as_current_span("model2"):
                 x = model2(x)
             with tracer.start_as_current_span("model3"):
                 x = model3(x)
+
+            # Add metadata of this batch
+            root_span.set_attribute("num_detecton", num_detection_generator(i))
+            root_span.set_attribute("frame_idx", i)
+            # Mark this as root span and update the step in wandb.
+            root_span.set_attribute(IS_ROOT_SPAN_KEY_NAME, True)
 
     trace.get_tracer_provider().shutdown()
     wandb.finish()
