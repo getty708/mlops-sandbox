@@ -23,8 +23,9 @@ pandas = "^2.2.2"
 python = "^3.10"
 torch = "^2.3.1"
 tqdm = "^4.66.4"
-tritonclient = {extras = ["all"], version = "^2.47.0"}
+tritonclient = {extras = ["grpc"], version = "^2.47.0"}
 torchvision = "^0.19.1"
+wandb = "^0.18.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
@@ -33,6 +34,11 @@ black = "^24.4.2"
 isort = "^5.13.2"
 pylint = "^3.2.5"
 pytest-mock = "^3.14.0"
+
+
+[tool.poetry.group.gpu.dependencies]
+tritonclient = {extras = ["all"], version = "^2.47.0"}
+cuda-python = "12.5.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -83,6 +89,7 @@ max-line-length = 100
 
 [tool.pylint.messages_control]
 disable = [
+  "c-extension-no-member",
   "consider-using-f-string",
   "duplicate-code",
   "fixme",
@@ -97,8 +104,10 @@ disable = [
   "no-member",
   "no-value-for-parameter",
   "protected-access",
+  "redefined-outer-name",
   "too-few-public-methods",
   "too-many-arguments",
   "unspecified-encoding",
   "unused-argument",
+  "wrong-import-order",
 ]
