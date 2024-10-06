@@ -53,6 +53,13 @@ class DummyModel:
         return x
 
 
+def num_detection_generator(frame_idx: int) -> int:
+    """Generate the number of detection with a sine wave."""
+    amp = 10  # amplitude = (the number of maximum detection) / 2
+    interval = 20  # the period of the sine wave
+    return int(amp * np.sin(2 * np.pi * frame_idx / interval) + amp)
+
+
 # ======
 #  Main
 # ======
@@ -60,7 +67,7 @@ class DummyModel:
 
 @click.command()
 @click.option("-n", "--num-frames", default=10, help="Number of frames to process")
-@click.option("-w", "--wandb-mode", default="offline", help="WandB mode")
+@click.option("-w", "--wandb-mode", default="offline", show_default=True, help="WandB mode")
 def main(num_frames: int = 10, wandb_mode: str = "offline"):
     wandb.init(
         project=WANDB_PROJECT_NAME,
@@ -68,9 +75,9 @@ def main(num_frames: int = 10, wandb_mode: str = "offline"):
     )
 
     # Init dummy models
-    model1 = DummyModel(name="model1", mean=0.1, std=0.01)
-    model2 = DummyModel(name="model2", mean=0.2, std=0.02)
-    model3 = DummyModel(name="model3", mean=0.3, std=0.03)
+    model1 = DummyModel(name="model1", mean=0.1, std=0.001)
+    model2 = DummyModel(name="model2", mean=0.2, std=0.010)
+    model3 = DummyModel(name="model3", mean=0.3, std=0.100)
 
     # Run the pipeline
     for i in range(num_frames):
@@ -79,10 +86,10 @@ def main(num_frames: int = 10, wandb_mode: str = "offline"):
             span.set_attribute(IS_ROOT_SPAN_KEY_NAME, True)
             span.set_attribute("frame_idx", i)
 
-            x = torch.randn(1, 3, 224, 224)
+            x = torch.randn(1, 3, 100, 100)
             with tracer.start_as_current_span("model1") as span_1:
                 x = model1(x)
-                span_1.set_attribute("num_detecton", i)
+                span_1.set_attribute("num_detecton", num_detection_generator(i))
             with tracer.start_as_current_span("model2"):
                 x = model2(x)
             with tracer.start_as_current_span("model3"):
