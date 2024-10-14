@@ -1,0 +1,33 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  prometheus:
+    endpoint: "0.0.0.0:8000"
+    namespace: "otel"
+  otlp:
+    endpoint: "jaeger:4317"
+    tls:
+      insecure: true
+
+connectors:
+  spanmetrics:
+    histogram:
+      disable: false
+    aggregation_temporality: "AGGREGATION_TEMPORALITY_CUMULATIVE"
+    metrics_flush_interval: 1s
+    metrics_expiration: 10s
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [spanmetrics, otlp]
+    metrics:
+      receivers: [otlp, spanmetrics]
+      exporters: [prometheus]
