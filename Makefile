@@ -15,7 +15,7 @@ test:
 # =====================
 #  Monitoring Services
 # =====================
-CMD_DOCKER_COMPOSE_MONITOR=docker-compose -f docker-compose-monitor.yaml
+CMD_DOCKER_COMPOSE_MONITOR=docker compose -f docker-compose-monitor.yaml
 
 .PHONY: up-monitor
 up-monitor:
