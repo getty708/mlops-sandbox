@@ -107,6 +107,7 @@ disable = [
   "redefined-outer-name",
   "too-few-public-methods",
   "too-many-arguments",
+  "too-many-positional-arguments",
   "unspecified-encoding",
   "unused-argument",
   "wrong-import-order",

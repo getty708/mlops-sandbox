@@ -5,7 +5,11 @@ import numpy as np
 import torch
 import wandb
 from loguru import logger
-from opentelemetry import trace
+from opentelemetry import metrics, trace
+from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -29,7 +33,28 @@ trace.set_tracer_provider(tracer_provider=tracer_provider)
 tracer_provider.add_span_processor(
     span_processor=BatchSpanProcessor(span_exporter=WandBSpanmetricsExporter())
 )
+tracer_provider.add_span_processor(
+    span_processor=BatchSpanProcessor(
+        span_exporter=OTLPSpanExporter(endpoint="localhost:4317", insecure=True)
+    )
+)
 tracer = trace.get_tracer_provider().get_tracer(__name__)
+
+
+# == Metrics ==
+reader = PeriodicExportingMetricReader(
+    OTLPMetricExporter(endpoint="localhost:4317", insecure=True),
+    export_interval_millis=1000,
+)
+metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[reader]))
+
+meter = metrics.get_meter_provider().get_meter(__name__)
+people_counter = meter.create_counter(
+    name="detected_people_count",
+    description="Number of people detected in the frame",
+    unit="1",
+)
+
 
 # ==============
 #  Dummy Models
@@ -37,24 +62,29 @@ tracer = trace.get_tracer_provider().get_tracer(__name__)
 
 
 class DummyModel(torch.nn.Module):
-    def __init__(self, name: str, mean: float, std: float, seed: int = 12345) -> None:
+    def __init__(  # noqa: R0917
+        self,
+        amp: float = 10,  # milliseconds
+        interval: float = 200,
+        beta: float = 100,  # milliseconds
+    ) -> None:
         super().__init__()
-        self.name = name
-        self.mean = mean
-        self.std = std
-        self.rng = np.random.default_rng(seed)
+        self.sin_wave_fn = lambda x: amp * np.sin(2 * np.pi * x / interval) + beta
+        self.call_count: int = 0
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        duration = self.rng.normal(loc=self.mean, scale=self.std)
-        logger.info(f"Sleep for {duration:.2f}sec")
-        time.sleep(duration)
+        duration = self.sin_wave_fn(self.call_count)  # milliseconds
+        self.call_count += 1
+
+        logger.info(f"Sleep for {duration:.2f}ms")
+        time.sleep(duration / 1e3)
         return x
 
 
 def num_detection_generator(frame_idx: int) -> int:
     """Generate the number of detection with a sine wave."""
     amp = 10  # amplitude = (the number of maximum detection) / 2
-    interval = 20  # the period of the sine wave
+    interval = 1000  # the period of the sine wave
     return int(amp * np.sin(2 * np.pi * frame_idx / interval) + amp)
 
 
@@ -73,25 +103,27 @@ def main(num_frames: int = 10, wandb_mode: str = "offline"):
     )
 
     # Init dummy models
-    model1 = DummyModel(name="model1", mean=0.1, std=0.001)
-    model2 = DummyModel(name="model2", mean=0.2, std=0.010)
-    model3 = DummyModel(name="model3", mean=0.3, std=0.100)
+    model1 = DummyModel(amp=50, interval=250, beta=100)
+    model2 = DummyModel(amp=50, interval=500, beta=100)
+    model3 = DummyModel(amp=50, interval=1000, beta=100)
 
     # Run the pipeline
     for i in range(num_frames):
         logger.info(f"Processing frame {i}")
         with tracer.start_as_current_span("process_single_frame") as root_span:
+            num_detection = num_detection_generator(i)
             x = torch.randn(1, 3, 100, 100)
+
             with tracer.start_as_current_span("model1"):
                 x = model1(x)
-
             with tracer.start_as_current_span("model2"):
                 x = model2(x)
             with tracer.start_as_current_span("model3"):
                 x = model3(x)
 
             # Add metadata of this batch
-            root_span.set_attribute("num_detecton", num_detection_generator(i))
+            people_counter.add(num_detection)
+            root_span.set_attribute("num_detecton", num_detection)
             root_span.set_attribute("frame_idx", i)
             # Mark this as root span and update the step in wandb.
             root_span.set_attribute(IS_ROOT_SPAN_KEY_NAME, True)
