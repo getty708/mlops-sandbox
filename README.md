@@ -17,3 +17,16 @@ make init
 # for GPU device
 make init-gpu
 ```
+
+## Launch Monitoring Tools
+
+```bash
+# Launch Prometheus and Grafana
+make up-monitor
+
+# Stop monitoring services
+make stop-monitor
+
+# Stop and remove monitoring services
+make down-monitor
+```

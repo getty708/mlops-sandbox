@@ -15,6 +15,7 @@ This is a simple example of how to use the `WandbSpanmetricsExporter` to record 
 
 #### How to Run the Example?
 
+- Go to the root directory and loaunch monitoring services by running `make up-monitor` (Ref: [README #Launch Monitoring Tools](../../README.md#launch-monitoring-tools))
 - Log in to the wandb by running `wandb login`
 - Run the pipeline with the following command:
 
@@ -29,3 +30,4 @@ Set `--wandb-mode` to `online` to record the results in the wandb (default is `o
 #### Reference
 
 - [OpenTelemetry を使って Span を W&B に記録する - Zenn](https://zenn.dev/getty708/articles/20241006-wandb-spanmetrics-exporter)
+- [OpenTelemetry を使って Span を W&B に記録する (2) - Zenn](https://zenn.dev/getty708/articles/20241020-wandb-otel-connector)
